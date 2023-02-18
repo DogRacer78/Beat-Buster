@@ -1,12 +1,16 @@
 const { Client, GatewayIntentBits } = require("discord.js");
-const ytdl = require("ytdl-core");
 const client = new Client({intents : [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]});
 const data = require("./config.json");
-const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require("@discordjs/voice");
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, NoSubscriberBehavior } = require("@discordjs/voice");
+const { video_basic_info, stream, search } = require("play-dl");
 
 const VOICE_CHANNEL = "1012467820698796153";
-let stream;
-let player;
+const player = createAudioPlayer({
+    behaviors : {
+        noSubscriber : NoSubscriberBehavior.Play
+    }
+});
+
 
 client.on("ready", () => {
     console.log(`Logged in as ${client.user.tag}`);
@@ -29,24 +33,35 @@ client.on("interactionCreate", async (interaction) => {
 
 
         // try and stream the yt video
-        player = createAudioPlayer();
+        let vid;
+        let outData;
+        try{
+            vid = await stream(data, {discordPlayerCompatibility: true});
+            console.log(`GOT ${data}`);
+            outData = data;
+        }
+        catch(e){
+            // if the URL can't be found locate it with a search
+            outData = await search(data, {limit : 1});
+            console.log(`Playing from ${outData[0].url}`);
+            vid = await stream(outData[0].url, {discordPlayerCompatibility: true});
+        }
+        
+        
 
-        stream = ytdl(data, {filter : "audioonly"});
-        console.log("GOT THE FILE");
-
-        let file = createAudioResource(stream);
+        let file = createAudioResource(vid.stream, {inputType : vid.type});
 
         const sub = voiceConnection.subscribe(player);
         player.play(file);
         
 
-        await interaction.reply(`You ran the command as ${interaction.user.tag} with option ${data}, user is in channel ${channel.name}`);
-        console.log(`${interaction.user.tag} said ${data}`);
+        await interaction.reply(`Now Playing ${outData[0]}`);
+        console.log(`${interaction.user.tag} said ${outData[0]}`);
     }
 
     else if (interaction.commandName === "stfu"){
         player.stop();
-        await interaction.reply("Fuck you bitch, I do what I want");
+        await interaction.reply("Stopping");
     }
 });
 
