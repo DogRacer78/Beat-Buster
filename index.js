@@ -55,8 +55,8 @@ client.on("interactionCreate", async (interaction) => {
         player.play(file);
         
 
-        await interaction.reply(`Now Playing ${outData[0]}`);
-        console.log(`${interaction.user.tag} said ${outData[0]}`);
+        await interaction.reply(`Now Playing ${outData}`);
+        console.log(`${interaction.user.tag} said ${outData}`);
     }
 
     else if (interaction.commandName === "stfu"){
