@@ -27,11 +27,13 @@ const rest = new REST({version : "10"}).setToken(data.token);
     try{
         console.log("Started refreshing application slash commands")
 
-        await rest.put(Routes.applicationCommands("1074068290290339931"), { body: [] });
-        await rest.put(Routes.applicationGuildCommands("1074068290290339931", "570276044079366145"), {body : []});
+        //await rest.put(Routes.applicationCommands("1074068290290339931"), { body: [] });
+        //await rest.put(Routes.applicationGuildCommands("1074068290290339931", "570276044079366145"), {body : []});
         console.log("Deleted all commands");
 
+        await rest.put(Routes.applicationCommands("1074068290290339931"), { body: commands });
         await rest.put(Routes.applicationGuildCommands("1074068290290339931", "570276044079366145"), {body : commands});
+        await rest.put(Routes.applicationGuildCommands("1074068290290339931", "707252697887408278"), {body : commands});
 
         console.log("Successfully reloaded application slash commands");
     }
