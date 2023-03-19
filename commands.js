@@ -13,10 +13,25 @@ const stopCommand = new SlashCommandBuilder()
         .setName("stfu")
         .setDescription("STOPS JAMIES STUPUD VIDEOS");
 
+const listCommand = new SlashCommandBuilder()
+        .setName("list")
+        .setDescription("Lists the current queue");
+
+const skipCommand = new SlashCommandBuilder()
+        .setName("skip")
+        .setDescription("Skips to the next track");
+
+const shuffleCommand = new SlashCommandBuilder()
+        .setName("shuffle")
+        .setDescription("Shuffles the current queue");
+
 const commands =
 [
     command.toJSON(),
-    stopCommand.toJSON()
+    stopCommand.toJSON(),
+    listCommand.toJSON(),
+    skipCommand.toJSON(),
+    shuffleCommand.toJSON()
 ]
 
 console.log(commands);

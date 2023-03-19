@@ -2,10 +2,11 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const client = new Client({intents : [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]});
 const data = require("./config.json");
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, NoSubscriberBehavior, AudioPlayerStatus } = require("@discordjs/voice");
-const { video_basic_info, stream, search } = require("play-dl");
+const { video_basic_info, stream, search, setToken, spotify } = require("play-dl");
 const GuildData = require("./GuildData");
+const { getVideoInfo, getType, getSpotifyPlaylist, getSpotifyTrack, getYouTubeVideo, getSearch } = require("./StreamData.js");
+const { TrackType } = require("./TrackTypeEnum");
 
-let playerGuild = {};
 let guildsRegistered = [];
 
 client.on("ready", () => {
@@ -15,14 +16,15 @@ client.on("ready", () => {
 client.on("interactionCreate", async (interaction) => {
     if (!interaction.isChatInputCommand())
         return;
+
+     // check if the user is in the correct server
+    if (interaction.member.voice.channelId == null){
+        console.log("Not in the correct server");
+        await interaction.reply("You are not in a voice channel");
+        return;
+    }
     
     if (interaction.commandName === "play"){
-        // check if the user is in the correct server
-        if (interaction.member.voice.channelId == null){
-            console.log("Not in the correct server");
-            await interaction.reply("You are not in a voice channel");
-            return;
-        }
 
         let data = interaction.options.getString("input");
         let dataNoMod = data;
@@ -32,12 +34,13 @@ client.on("interactionCreate", async (interaction) => {
         let textChannel = interaction.channel;
 
         // check if the guild has been registered
+        /** @type {GuildData} */
         let currentGuild = null;
         for (let i = 0; i < guildsRegistered.length; i++){
             if (guildsRegistered[i].guildID === guildID){
                 // already registred
                 currentGuild = guildsRegistered[i];
-                currentGuild.queue.push(data);
+                //currentGuild.queue.push(data);
                 console.log("The guild already exists");
                 break;
             }
@@ -59,78 +62,133 @@ client.on("interactionCreate", async (interaction) => {
             guildsRegistered.push(newGuildData);
             // add to object
             //playerGuild
-            currentGuild.queue.push(data);
+            //currentGuild.queue.push(data);
 
             console.log("Created a new guild instance");
         }
 
-        // add the data to the queue
-        console.log(currentGuild.player.state.status);
-        if (currentGuild.player.state.status == "idle"){
-            currentGuild.player.emit("stateChange", AudioPlayerStatus.Idle, AudioPlayerStatus.Idle);
+        //await interaction.deferReply();
+        let videoInfo = await getType(data);
+        let vidAdded;
+        if (videoInfo === false){
+            await interaction.reply("Link is not supported");
+            return;
         }
-        await interaction.reply(`Added to the queue`);
-
-
-        // try and stream the yt video
-        
-        /*
-        let vid;
-        let outData;
-
-        let robSongs = ["https://www.youtube.com/watch?v=EK_LN3XEcnw&ab_channel=LouBegaVEVO", "https://www.youtube.com/watch?v=gtOV7bp-gys&ab_channel=robbiewilliamsvevo",
-        "https://www.youtube.com/watch?v=b9Y4TACmvE8&ab_channel=JamiroquaiVEVO", "https://www.youtube.com/watch?v=92cwKCU8Z5c&ab_channel=AbbaVEVO", 
-        "https://youtu.be/Q-jqcZ_Jbd8", "https://www.youtube.com/watch?v=oftolPu9qp4", "https://www.youtube.com/watch?v=NTfZshkNZRw"];
-
-        //temp rob code
-        //if (interaction.user.id == "435520930861809664"){
-            //let songChosen = Math.floor(Math.random() * (robSongs.length - 1));
-            //console.log(songChosen);
-            //data = robSongs[songChosen];
-        //}
-
-
-        try{
-            vid = await stream(data, {discordPlayerCompatibility : true});
-            console.log(`GOT ${data}`);
-            outData = data;
+        else if (videoInfo === TrackType.SpotifyPlaylist){
+            // defer response and
+            //await interaction.deferReply();
+            console.log("Adding playlist to queue");
+            const playListInfo = await getSpotifyPlaylist(data);
+            currentGuild.addToQueue(playListInfo);
+            playIfIdle(currentGuild);
+            await interaction.reply(`Added playlist ${data} to the queue!`);
+            return;
         }
-        catch(e){
-            // if the URL can't be found locate it with a search
-            console.log(`Searching for ${data}`);
-            outData = await search(data, {limit : 1});
-            console.log(`Playing from ${outData[0].url}`);
-            vid = await stream(outData[0].url, {discordPlayerCompatibility : true});
+        else if (videoInfo === TrackType.SpotifyTrack){
+            console.log("Is spotify and getting");
+            currentGuild.addToQueue(await getSpotifyTrack(data));
+        }
+        else if (videoInfo === TrackType.YoutubeVideo){
+            currentGuild.addToQueue(await getYouTubeVideo(data));
+        }
+        else if (videoInfo === TrackType.Search){
+            currentGuild.addToQueue(await getSearch(data));
         }
 
-        //if (interaction.user.id == "435520930861809664"){
-            //outData = dataNoMod;
-        //}
+        vidAdded = currentGuild.getEndQueue().url;
 
-        playerGuild[interaction.member.guild.id] = player;
+        playIfIdle(currentGuild);
 
-        let file = createAudioResource(vid.stream, {inputType : vid.type});
+        await interaction.reply(`Added ${vidAdded} to the queue`);
 
-        player.play(file);
-        voiceConnection.subscribe(player);
-
-        await interaction.reply(`Now Playing ${outData}`);
-        console.log(`${interaction.user.tag} said ${outData}`);
-        */
     }
 
     else if (interaction.commandName === "stfu"){
-        console.log(playerGuild[interaction.member.guild.id]);
+        // get the guild id
+        let guildID = interaction.member.guild.id;
+        // search for 
+        const currentGuild = searchForGuild(guildID, guildsRegistered);
+        if (currentGuild !== null){
+            let res = currentGuild.clearQueue();
+            currentGuild.stopPlayback();
+            await interaction.reply("Stopping and clearing queue!");
+        }
+        else{
+            await interaction.reply("Nothing is playing!");
+        }
+    }
 
-        if (playerGuild[interaction.member.guild.id] == null){
-            await interaction.reply("Nothing is playing");
-            return;
-        } 
-        playerGuild[interaction.member.guild.id].stop();
-        delete playerGuild[interaction.member.guild.id];
-        await interaction.reply("Stopping");
+    else if (interaction.commandName === "list"){
+        // get the guild id
+        let guildID = interaction.member.guild.id;
+        const currentGuild = searchForGuild(guildID, guildsRegistered);
+        if (currentGuild !== null){
+            // if the current guild is not empty
+            let queueData = currentGuild.listQueue();
+            if (Array.isArray(queueData)){
+                (async (data, channel) => {
+                    console.log("Sending data");
+                    for (let i = 0; i < data.length; i++){
+                        channel.send(data[i]);
+                    }
+                })(queueData, currentGuild.textChannel);
+                await interaction.reply("Getting queue...");
+            }
+            else{
+                await interaction.reply({embeds : [queueData]});    
+            }
+        }
+        else{
+            await interaction.reply("Queue is empty");
+        }
+    }
+    else if (interaction.commandName === "skip"){
+        // get the guild id
+        let guildID = interaction.member.guild.id;
+        const currentGuild = searchForGuild(guildID, guildsRegistered);
+        if (currentGuild !== null){
+            // if the current guild is not empty
+            currentGuild.skipTrack();
+            await interaction.reply("Skipping...");
+        }
+        else{
+            await interaction.replied();
+        }
+    }
+    else if (interaction.commandName === "shuffle"){
+        // shuffle the queue
+        let guildID = interaction.member.guild.id;
+        const currentGuild = searchForGuild(guildID, guildsRegistered);
+        if (currentGuild !== null){
+            // if the current guild is not empty
+            currentGuild.shuffleQueue();
+            await interaction.reply("Shuffling...");
+        }
+        else{
+            await interaction.replied();
+        }
     }
 });
+
+function playIfIdle(currGuild){
+    if (currGuild.player.state.status == "idle"){
+        currGuild.player.emit("stateChange", AudioPlayerStatus.Idle, AudioPlayerStatus.Idle);
+    }
+}
+
+/**
+ * 
+ * @param {string} guildID 
+ * @param {GuildData[]} guildDataObjs 
+ */
+function searchForGuild(guildID, guildDataObjs){
+    for (let i = 0; i < guildDataObjs.length; i++){
+        if (guildDataObjs[i].guildID === guildID){
+            return guildDataObjs[i];
+        }
+    }
+    return null;
+}
 
 function createVoiceConnection(guildID, channelId){
     const voiceConnection = joinVoiceChannel({
@@ -156,4 +214,12 @@ function createVoiceConnection(guildID, channelId){
     return voiceConnection;
 }
 
-client.login(data.token);
+(async () => {
+    await setToken({spotify : {
+        client_id : "a16e6d0fdea6485ba5849d461e92d593",
+        client_secret : "63fb814586bc49719c4fe8b5edc3cde2",
+        refresh_token : "AQDuUI5YUJK78WW23tgBPwJVsdAhEnNqT9G5uzGPVFEMcShai-FDhQP_kD43hJr9aL1vlnQBlUlYwarGT-ey9yXIroP6c4dX4Zglgk9pw5IxLoQbpWD2bQYfBvgYNrJEDWQ",
+        market : "GB"
+    }});
+    client.login(data.token);
+})();
