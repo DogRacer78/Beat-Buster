@@ -3,30 +3,12 @@ const { createAudioResource } = require("@discordjs/voice");
 const { TrackType } = require("./TrackTypeEnum.js");
 
 exports.playData = async function playData(track){
-
-    /*
-    let vid;
-    let outData;
-    try{
-        vid = await stream(data, {discordPlayerCompatibility : true});
-        console.log(`GOT ${data}`);
-        outData = data;
-    }
-    catch(e){
-        // if the URL can't be found locate it with a search
-        console.log(`Searching for ${data}`);
-        outData = await search(data, {limit : 1});
-        console.log(`Playing from ${outData[0].url}`);
-        vid = await stream(outData[0].url, {discordPlayerCompatibility : true});
-    }
-    */
-
     // stream from the track
     let data = await getDataOfTrack(track);
     data = data.url;
     console.log(data);
 
-    let videoStream = await stream(data, { discordPlayerCompatibility : true});
+    let videoStream = await stream(data);
     let file = createAudioResource(videoStream.stream, {inputType : videoStream.type});
 
     return file;
@@ -98,6 +80,9 @@ async function getType(data){
     else if (spotifyLink === "playlist"){
         return TrackType.SpotifyPlaylist;
     }
+    else if (spotifyLink === "album"){
+        return TrackType.SpotifyAlbum;
+    }
     else if (spotifyLink !== "search" && spotifyLink !== false){
         return false;
     }
@@ -117,8 +102,13 @@ async function getType(data){
 exports.getSpotifyPlaylist = async function getSpotifyPlaylist(url){
     // get the playlist
     const playlist = await spotify(url);
-    let videoInfoTracks = [];
     const allTracks = await playlist.all_tracks();
+    return allTracks;
+}
+
+exports.getSpotifyAlbum = async function getSpotifyAlbum(url){
+    const album = await spotify(url);
+    const allTracks = await album.all_tracks();
     return allTracks;
 }
 

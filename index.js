@@ -4,7 +4,7 @@ const data = require("./config.json");
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, NoSubscriberBehavior, AudioPlayerStatus } = require("@discordjs/voice");
 const { video_basic_info, stream, search, setToken, spotify } = require("play-dl");
 const GuildData = require("./GuildData");
-const { getVideoInfo, getType, getSpotifyPlaylist, getSpotifyTrack, getYouTubeVideo, getSearch } = require("./StreamData.js");
+const { getVideoInfo, getType, getSpotifyPlaylist, getSpotifyTrack, getYouTubeVideo, getSearch, getSpotifyAlbum } = require("./StreamData.js");
 const { TrackType } = require("./TrackTypeEnum");
 
 let guildsRegistered = [];
@@ -88,6 +88,10 @@ client.on("interactionCreate", async (interaction) => {
             console.log("Is spotify and getting");
             currentGuild.addToQueue(await getSpotifyTrack(data));
         }
+        else if (videoInfo === TrackType.SpotifyAlbum){
+            console.log("Adding an album");
+            currentGuild.addToQueue(await getSpotifyAlbum(data));
+        }
         else if (videoInfo === TrackType.YoutubeVideo){
             currentGuild.addToQueue(await getYouTubeVideo(data));
         }
@@ -167,6 +171,45 @@ client.on("interactionCreate", async (interaction) => {
         else{
             await interaction.replied();
         }
+    }
+    else if (interaction.commandName === "pause"){
+        // pauses the current player
+        let guildID = interaction.member.guild.id;
+        const currentGuild = searchForGuild(guildID, guildsRegistered);
+        if (currentGuild !== null){
+            // if the current guild is not empty
+            currentGuild.pausePlayer();
+            await interaction.reply("Pausing...");
+        }
+        else{
+            await interaction.reply("Nothing is playing!");
+        }
+    }
+    else if (interaction.commandName === "resume"){
+        // resumes the current player
+        let guildID = interaction.member.guild.id;
+        const currentGuild = searchForGuild(guildID, guildsRegistered);
+        if (currentGuild !== null){
+            // if the current guild is not empty
+            if (currentGuild.resumePlayer()){
+                await interaction.reply("Resuming...");
+                return;
+            }   
+        }
+        await interaction.reply("Cannot resume something / nothing is playing!!!");
+    }
+    else if (interaction.commandName === "playing"){
+        //gets the currently playing song
+        let guildID = interaction.member.guild.id;
+        const currentGuild = searchForGuild(guildID, guildsRegistered);
+        if (currentGuild !== null){
+            // if the current guild is not empty
+            // get the current song that is playing
+            console.log("Something is playing");
+            await interaction.reply(currentGuild.getPlaying());
+            return;
+        }
+        await interaction.reply("Nothing is Playing");
     }
 });
 

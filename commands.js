@@ -25,13 +25,28 @@ const shuffleCommand = new SlashCommandBuilder()
         .setName("shuffle")
         .setDescription("Shuffles the current queue");
 
+const pauseCommand = new SlashCommandBuilder()
+        .setName("pause")
+        .setDescription("Pauses the current track");
+
+const resumeCommand = new SlashCommandBuilder()
+        .setName("resume")
+        .setDescription("Resumes the current track");
+
+const playingCommand = new SlashCommandBuilder()
+        .setName("playing")
+        .setDescription("Gets the currently playing track");
+
 const commands =
 [
     command.toJSON(),
     stopCommand.toJSON(),
     listCommand.toJSON(),
     skipCommand.toJSON(),
-    shuffleCommand.toJSON()
+    shuffleCommand.toJSON(),
+    pauseCommand.toJSON(),
+    resumeCommand.toJSON(),
+    playingCommand.toJSON()
 ]
 
 console.log(commands);

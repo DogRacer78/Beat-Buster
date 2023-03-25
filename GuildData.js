@@ -1,16 +1,28 @@
 // class to represent a guild, with its player and queue
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, Message } = require("discord.js");
 const { getVideoInfo, playData, getType, getDataOfTrack } = require("./StreamData.js");
 const { stream_from_info } = require("play-dl");
+const { AudioPlayer, AudioPlayerStatus } = require("@discordjs/voice");
 
 class GuildData {
     constructor(guildID, textChannel, player, voiceConnection){
         this.guildID = guildID;
+        /**@type {AudioPlayer} */
         this.player = player;
         this.voiceConnection = voiceConnection;
         this.queue = [];
         this.textChannel = textChannel;
+        this.playing = "";
+
+        this.timeStarted;
+        this.playingDuration = 0;
+
+        // progress bar interval
+        this.progressInterval;
+        this.progressBarMsg;
+
         this.voiceConnection.subscribe(player);
+
         player.addListener("stateChange", async (oldOne, newOne) => {
             console.log(newOne);
             console.log("State has changed");
@@ -41,14 +53,25 @@ class GuildData {
         // play the next thing in the queue
         // send to chat saying so
 
+        this.resetPlaying();
+
         let nextTrack = this.getNextTrack();
         if (nextTrack !== null){
             console.log(`Trying to play ${nextTrack.url}`);
             let videoData = await playData(nextTrack);
+            console.log("Playback duration");
+            console.log(videoData.playbackDuration);
             let youtubeVidData = await getDataOfTrack(nextTrack);
+            this.playingDuration = youtubeVidData.durationInSec;
             this.playFile(videoData);
             console.log(`Now playing ${youtubeVidData.url}`);
+            this.playing = youtubeVidData.url;
+            this.timeStarted = Date.now();
             this.textChannel.send(`Now playing ${youtubeVidData.url}`);
+            this.progressBarMsg = await this.textChannel.send("Getting Progress Bar...");
+            console.log(this.progressBarMsg);
+            this.progressInterval = setInterval(this.setProgressBar.bind(this), 1000);
+            return;
         }
         else{
             console.log("Nothing to play");
@@ -56,10 +79,31 @@ class GuildData {
         }
     }
 
+    resetPlaying(){
+        // reset some variables
+        this.playing = "";
+        this.playingDuration = 0;
+        this.progressBarMsg = null;
+        clearInterval(this.progressInterval);
+
+    }
+
+    setProgressBar(){
+        if (this.progressBarMsg != null){
+            let timeElapsed = (Date.now() - this.timeStarted) / 1000;
+            let currentDuration = Math.floor(timeElapsed / this.playingDuration * 100);
+            let durationDisplay = `[${'\u25A0'.repeat(currentDuration)}${'\u25A1'.repeat(100 - currentDuration)}] ${currentDuration}%`;
+            //console.log(currentDuration);
+            this.progressBarMsg.edit(durationDisplay);
+        }
+        //this.progressBarMsg.edit(durationDisplay);
+    }
+
     skipTrack(){
         if (this.peekNextTrack() === null){
             // if there is no next track stop the playback
-            this.player.stop();
+            this.stopPlayback();
+            this.resetPlaying();
         }
         else{
             this.playNextTrack();
@@ -169,7 +213,35 @@ class GuildData {
           array[i] = array[j];
           array[j] = temp;
         }
-      }
+    }
+
+    pausePlayer(){
+        this.player.pause();
+    }
+
+    resumePlayer(){
+        if (this.player.state.status == "paused"){
+            console.log("Thing is paused");
+            this.player.unpause();
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    getPlaying(){
+        // returns the song playing or nothing
+        if (this.playing !== ""){
+            // get the current time and subtract
+            //console.log(this.progressBarMsg);
+            return "Currently playing " + this.playing;
+        }
+        else{
+            return "Nothing is Playing";
+        }
+    }
+
 }
 
 module.exports = GuildData;
