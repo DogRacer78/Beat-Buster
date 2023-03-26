@@ -1,15 +1,15 @@
 // class to represent a guild, with its player and queue
 const { EmbedBuilder, Message } = require("discord.js");
-const { getVideoInfo, playData, getType, getDataOfTrack } = require("./StreamData.js");
+const { getVideoInfo, playData, getType, getDataOfTrack, createVoiceConnection } = require("./StreamData.js");
 const { stream_from_info } = require("play-dl");
 const { AudioPlayer, AudioPlayerStatus } = require("@discordjs/voice");
 
 class GuildData {
-    constructor(guildID, textChannel, player, voiceConnection){
+    constructor(guildID, textChannel, player){
         this.guildID = guildID;
         /**@type {AudioPlayer} */
         this.player = player;
-        this.voiceConnection = voiceConnection;
+        this.voiceConnection = null;
         this.queue = [];
         this.textChannel = textChannel;
         this.playing = "";
@@ -21,7 +21,7 @@ class GuildData {
         this.progressInterval;
         this.progressBarMsg;
 
-        this.voiceConnection.subscribe(player);
+        //this.voiceConnection.subscribe(player);
 
         player.addListener("stateChange", async (oldOne, newOne) => {
             console.log(newOne);
@@ -47,7 +47,7 @@ class GuildData {
         
     }
     
-    async playNextTrack(){
+    async playNextTrack(guildID, channelID, client){
         // play the next queue
         console.log(this.guildID);
         // play the next thing in the queue
@@ -57,6 +57,13 @@ class GuildData {
 
         let nextTrack = this.getNextTrack();
         if (nextTrack !== null){
+            // set up the voice connection
+            if (this.voiceConnection === null){
+                this.voiceConnection = createVoiceConnection(guildID, channelID, client);
+                this.voiceConnection.subscribe(this.player);
+            }
+
+
             console.log(`Trying to play ${nextTrack.url}`);
             let videoData = await playData(nextTrack);
             console.log("Playback duration");
@@ -74,7 +81,10 @@ class GuildData {
             return;
         }
         else{
-            console.log("Nothing to play");
+            console.log("Nothing to play, destroying connection");
+            this.voiceConnection.destroy();
+            this.voiceConnection = null;
+            //console.log(this.voiceConnection);
             this.textChannel.send("Nothing to play");
         }
     }

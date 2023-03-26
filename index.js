@@ -49,14 +49,14 @@ client.on("interactionCreate", async (interaction) => {
         // if the guild does not exist then create a new object with a player
         if (currentGuild === null){
             // if not registered, register new player and
-            const voiceConnection = createVoiceConnection(guildID, voiceChannelID);
+            //const voiceConnection = createVoiceConnection(guildID, voiceChannelID);
             const player = createAudioPlayer({
                 behaviors : {
                     noSubscriber : NoSubscriberBehavior.Play
                 }
             });
 
-            let newGuildData = new GuildData(guildID, textChannel, player, voiceConnection);
+            let newGuildData = new GuildData(guildID, textChannel, player);
             currentGuild = newGuildData;
             // create class
             guildsRegistered.push(newGuildData);
@@ -101,7 +101,8 @@ client.on("interactionCreate", async (interaction) => {
 
         vidAdded = currentGuild.getEndQueue().url;
 
-        playIfIdle(currentGuild);
+        playIfIdle(currentGuild, guildID, voiceChannelID, client);
+        //currentGuild.playNextTrack();
 
         await interaction.reply(`Added ${vidAdded} to the queue`);
 
@@ -213,9 +214,9 @@ client.on("interactionCreate", async (interaction) => {
     }
 });
 
-function playIfIdle(currGuild){
+function playIfIdle(currGuild, guildID, channelID, client){
     if (currGuild.player.state.status == "idle"){
-        currGuild.player.emit("stateChange", AudioPlayerStatus.Idle, AudioPlayerStatus.Idle);
+        currGuild.playNextTrack(guildID, channelID, client);
     }
 }
 
@@ -231,30 +232,6 @@ function searchForGuild(guildID, guildDataObjs){
         }
     }
     return null;
-}
-
-function createVoiceConnection(guildID, channelId){
-    const voiceConnection = joinVoiceChannel({
-        channelId: channelId,
-        guildId: guildID,
-        adapterCreator: client.guilds.cache.get(guildID).voiceAdapterCreator
-    });
-
-    // bug in discord.js as of 11/03/23, this fixed from https://github.com/discordjs/discord.js/issues/9185
-    const networkStateChangeHandler = (oldNetworkState, newNetworkState) => {
-        const newUdp = Reflect.get(newNetworkState, 'udp');
-        clearInterval(newUdp?.keepAliveInterval);
-      }
-      
-      voiceConnection.on('stateChange', (oldState, newState) => {
-        const oldNetworking = Reflect.get(oldState, 'networking');
-        const newNetworking = Reflect.get(newState, 'networking');
-      
-        oldNetworking?.off('stateChange', networkStateChangeHandler);
-        newNetworking?.on('stateChange', networkStateChangeHandler);
-      });
-
-    return voiceConnection;
 }
 
 (async () => {

@@ -1,5 +1,5 @@
 const { stream, search, yt_validate, video_info, stream_from_info, sp_validate, spotify, SpotifyTrack, YouTubeVideo } = require("play-dl");
-const { createAudioResource } = require("@discordjs/voice");
+const { createAudioResource, joinVoiceChannel } = require("@discordjs/voice");
 const { TrackType } = require("./TrackTypeEnum.js");
 
 exports.playData = async function playData(track){
@@ -124,6 +124,30 @@ exports.getYouTubeVideo = async function getYoutubeVideo(url){
 exports.getSearch = async function getSearch(searchTerm){
     const video = await search(searchTerm, { limit : 1});
     return video[0];
+}
+
+exports.createVoiceConnection = function createVoiceConnection(guildID, channelId, client){
+    const voiceConnection = joinVoiceChannel({
+        channelId: channelId,
+        guildId: guildID,
+        adapterCreator: client.guilds.cache.get(guildID).voiceAdapterCreator
+    });
+
+    // bug in discord.js as of 11/03/23, this fixed from https://github.com/discordjs/discord.js/issues/9185
+    const networkStateChangeHandler = (oldNetworkState, newNetworkState) => {
+        const newUdp = Reflect.get(newNetworkState, 'udp');
+        clearInterval(newUdp?.keepAliveInterval);
+      }
+      
+      voiceConnection.on('stateChange', (oldState, newState) => {
+        const oldNetworking = Reflect.get(oldState, 'networking');
+        const newNetworking = Reflect.get(newState, 'networking');
+      
+        oldNetworking?.off('stateChange', networkStateChangeHandler);
+        newNetworking?.on('stateChange', networkStateChangeHandler);
+      });
+
+    return voiceConnection;
 }
 
 exports.getType = getType;

@@ -1,4 +1,9 @@
 {
+  "name" : "beat_buster",
+  "version": "1.0.0",
+  "description": "Discord Music Bot",
+  "author": "DogRacer78",
+  "main": "index.js",
   "dependencies": {
     "@discordjs/voice": "^0.14.0",
     "discord.js": "^14.7.1",
