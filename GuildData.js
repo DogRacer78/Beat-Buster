@@ -16,18 +16,21 @@ class GuildData {
 
         this.timeStarted;
         this.playingDuration = 0;
+        this.playingMins = 0;
+        this.playingSecs = 0;
 
         // progress bar interval
         this.progressInterval;
         this.progressBarMsg;
 
+        this.buffer = false;
+
         //this.voiceConnection.subscribe(player);
 
-        player.addListener("stateChange", async (oldOne, newOne) => {
-            console.log(newOne);
+        player.addListener("stateChange", (oldOne, newOne) => {
             console.log("State has changed");
             if (newOne == "idle" || newOne.status == "idle"){
-                await this.playNextTrack();
+                this.playNextTrack();
             }
         });
     }
@@ -44,6 +47,8 @@ class GuildData {
             console.log(data.url);
             this.queue.push(data);
         }
+
+
         
     }
     
@@ -53,10 +58,22 @@ class GuildData {
         // play the next thing in the queue
         // send to chat saying so
 
+        // if the bot is trying to play, it will be buffering
+        // another should not be played if it is buffering
+        if (this.buffer){
+            console.log("BOT IS BUFFERING");
+            return;
+        }
+
+        console.log("Not buffering, playing");
+
+        this.buffer = true;
+
         this.resetPlaying();
 
         let nextTrack = this.getNextTrack();
         if (nextTrack !== null){
+
             // set up the voice connection
             if (this.voiceConnection === null){
                 this.voiceConnection = createVoiceConnection(guildID, channelID, client);
@@ -67,18 +84,20 @@ class GuildData {
             console.log(`Trying to play ${nextTrack.url}`);
             let videoData = await playData(nextTrack);
             console.log("Playback duration");
-            console.log(videoData.playbackDuration);
             let youtubeVidData = await getDataOfTrack(nextTrack);
+
+            // playing duration calcs
             this.playingDuration = youtubeVidData.durationInSec;
+            this.playingMins = Math.floor(this.playingDuration / 60);
+            this.playingSecs = this.playingDuration % 60;
+
             this.playFile(videoData);
+            this.timeStarted = Date.now();
             console.log(`Now playing ${youtubeVidData.url}`);
             this.playing = youtubeVidData.url;
-            this.timeStarted = Date.now();
             this.textChannel.send(`Now playing ${youtubeVidData.url}`);
             this.progressBarMsg = await this.textChannel.send("Getting Progress Bar...");
-            console.log(this.progressBarMsg);
             this.progressInterval = setInterval(this.setProgressBar.bind(this), 1000);
-            return;
         }
         else{
             console.log("Nothing to play, destroying connection");
@@ -87,24 +106,32 @@ class GuildData {
             //console.log(this.voiceConnection);
             this.textChannel.send("Nothing to play");
         }
+        this.buffer = false;
     }
 
     resetPlaying(){
         // reset some variables
         this.playing = "";
         this.playingDuration = 0;
+        this.playingMins = 0;
+        this.playingSecs = 0;
+        this.timeStarted = 0;
         this.progressBarMsg = null;
         clearInterval(this.progressInterval);
-
     }
 
     setProgressBar(){
         if (this.progressBarMsg != null){
             let timeElapsed = (Date.now() - this.timeStarted) / 1000;
             let currentDuration = Math.floor(timeElapsed / this.playingDuration * 100);
-            let durationDisplay = `[${'\u25A0'.repeat(currentDuration)}${'\u25A1'.repeat(100 - currentDuration)}] ${currentDuration}%`;
-            //console.log(currentDuration);
-            this.progressBarMsg.edit(durationDisplay);
+            let timeElapsedMins = Math.floor(timeElapsed / 60);
+            let timeElapsedSecs = Math.floor(timeElapsed % 60);
+            let secsPadded = timeElapsedSecs.toString().padStart(2, "0");
+            if (currentDuration >= 0 && currentDuration <= 100){
+                let durationDisplay = `[${'\u25A0'.repeat(currentDuration)}${'\u25A1'.repeat(100 - currentDuration)}] - ${timeElapsedMins}:${secsPadded}/${this.playingMins}:${this.playingSecs}`;
+                //console.log(currentDuration);
+                this.progressBarMsg.edit(durationDisplay);
+            }
         }
         //this.progressBarMsg.edit(durationDisplay);
     }
@@ -187,8 +214,6 @@ class GuildData {
                     outputStrings[currentString] = "";
                 }
             }
-
-            console.log(queueData);
 
             return outputStrings;
         }

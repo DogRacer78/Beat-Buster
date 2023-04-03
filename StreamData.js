@@ -1,4 +1,4 @@
-const { stream, search, yt_validate, video_info, stream_from_info, sp_validate, spotify, SpotifyTrack, YouTubeVideo } = require("play-dl");
+const { stream, search, yt_validate, video_info, stream_from_info, sp_validate, spotify, SpotifyTrack, YouTubeVideo, is_expired, refreshToken } = require("play-dl");
 const { createAudioResource, joinVoiceChannel } = require("@discordjs/voice");
 const { TrackType } = require("./TrackTypeEnum.js");
 
@@ -6,7 +6,6 @@ exports.playData = async function playData(track){
     // stream from the track
     let data = await getDataOfTrack(track);
     data = data.url;
-    console.log(data);
 
     let videoStream = await stream(data);
     let file = createAudioResource(videoStream.stream, {inputType : videoStream.type});
@@ -68,6 +67,12 @@ exports.getVideoInfo = async function getVideoInfo(data){
 async function getType(data){
     if (typeof data != "string"){
         data = data.url;
+    }
+
+    // check if the spotify is expired
+    if (is_expired()){
+        console.log("Token is expired, refreshing...");
+        await refreshToken();
     }
 
     // check is youtube link

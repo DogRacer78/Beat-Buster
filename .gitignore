@@ -3,3 +3,6 @@
 
 # config containing bot token
 config.json
+
+#logs
+/logs

@@ -2,15 +2,18 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const client = new Client({intents : [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]});
 const data = require("./config.json");
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, NoSubscriberBehavior, AudioPlayerStatus } = require("@discordjs/voice");
-const { video_basic_info, stream, search, setToken, spotify } = require("play-dl");
+const { video_basic_info, stream, search, setToken, spotify, is_expired } = require("play-dl");
 const GuildData = require("./GuildData");
 const { getVideoInfo, getType, getSpotifyPlaylist, getSpotifyTrack, getYouTubeVideo, getSearch, getSpotifyAlbum } = require("./StreamData.js");
 const { TrackType } = require("./TrackTypeEnum");
 
+// logging
+require("log-timestamp");
+
 let guildsRegistered = [];
 
 client.on("ready", () => {
-    console.log(`Logged in as ${client.user.tag}`);
+    console.log(`Logged in as ${client.user.tag}, ${data.version}`);
 });
 
 client.on("interactionCreate", async (interaction) => {
@@ -215,9 +218,16 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 function playIfIdle(currGuild, guildID, channelID, client){
+    console.log("Checking if idle...");
     if (currGuild.player.state.status == "idle"){
+        console.log("Is Idle, trying to play again");
         currGuild.playNextTrack(guildID, channelID, client);
     }
+    else{
+        console.log("Is not idle");
+    }
+
+    console.log("Current status: " + currGuild.player.state.status);
 }
 
 /**
