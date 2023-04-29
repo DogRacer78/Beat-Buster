@@ -1,5 +1,5 @@
 // class to represent a guild, with its player and queue
-const { EmbedBuilder, Message } = require("discord.js");
+const { EmbedBuilder, Message, ButtonBuilder, ButtonStyle, ActionRow, ActionRowBuilder } = require("discord.js");
 const { getVideoInfo, playData, getType, getDataOfTrack, createVoiceConnection } = require("./StreamData.js");
 const { stream_from_info } = require("play-dl");
 const { AudioPlayer, AudioPlayerStatus } = require("@discordjs/voice");
@@ -24,6 +24,9 @@ class GuildData {
         this.progressBarMsg;
 
         this.buffer = false;
+
+        // button refernces
+        this.buttons = { row : null, message : null };
 
         //this.voiceConnection.subscribe(player);
 
@@ -71,6 +74,9 @@ class GuildData {
 
         this.resetPlaying();
 
+        // reset the buttons if any exists
+        this.disableCurrentButtons();
+
         let nextTrack = this.getNextTrack();
         if (nextTrack !== null){
 
@@ -98,6 +104,11 @@ class GuildData {
             this.textChannel.send(`Now playing ${youtubeVidData.url}`);
             this.progressBarMsg = await this.textChannel.send("Getting Progress Bar...");
             this.progressInterval = setInterval(this.setProgressBar.bind(this), 1000);
+
+            // send the playing button
+            this.buttons.message = await this.textChannel.send({
+                components : [this.currentPlayButtons()]
+            });
         }
         else{
             console.log("Nothing to play, destroying connection");
@@ -107,6 +118,51 @@ class GuildData {
             this.textChannel.send("Nothing to play");
         }
         this.buffer = false;
+    }
+
+    // for creating the currently playing buttons
+    currentPlayButtons(){
+        const pauseButton = new ButtonBuilder()
+            .setCustomId("pause")
+            .setLabel("\u23EF")
+            .setStyle(ButtonStyle.Primary);
+
+        const skipButton = new ButtonBuilder()
+            .setCustomId("skip")
+            .setLabel("\u23E9")
+            .setStyle(ButtonStyle.Primary);
+
+        const shuffleButton = new ButtonBuilder()
+            .setCustomId("shuffle")
+            .setLabel(String.fromCodePoint(0x1F500))
+            .setStyle(ButtonStyle.Primary);
+
+        const stopButton = new ButtonBuilder()
+            .setCustomId("stop")
+            .setLabel("\u23F9")
+            .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder()
+            .addComponents([pauseButton, stopButton, skipButton, shuffleButton]);
+
+        this.buttons.row = row;
+
+        return row;
+    }
+
+    // disbales the current buttons if any exist
+    disableCurrentButtons(){
+        if (this.buttons.row == null || this.buttons.message == null){
+            return;
+        }
+
+        for (let i = 0; i < this.buttons.row.components.length; i++){
+            if (this.buttons.row.components[i] != null)
+                this.buttons.row.components[i].setDisabled(true);
+        }
+
+        this.buttons.message.edit({ components : [this.buttons.row] });
+
     }
 
     resetPlaying(){
@@ -121,14 +177,14 @@ class GuildData {
     }
 
     setProgressBar(){
-        if (this.progressBarMsg != null){
+        if (this.progressBarMsg != null && this.player.state.status !== "paused"){
             let timeElapsed = (Date.now() - this.timeStarted) / 1000;
             let currentDuration = Math.floor(timeElapsed / this.playingDuration * 100);
             let timeElapsedMins = Math.floor(timeElapsed / 60);
             let timeElapsedSecs = Math.floor(timeElapsed % 60);
             let secsPadded = timeElapsedSecs.toString().padStart(2, "0");
             if (currentDuration >= 0 && currentDuration <= 100){
-                let durationDisplay = `[${'\u25A0'.repeat(currentDuration)}${'\u25A1'.repeat(100 - currentDuration)}] - ${timeElapsedMins}:${secsPadded}/${this.playingMins}:${this.playingSecs}`;
+                let durationDisplay = `[${'\u25A0'.repeat(currentDuration)}${'\u25A1'.repeat(100 - currentDuration)}] - ${timeElapsedMins}:${secsPadded}/${this.playingMins}:${this.playingSecs.toString().padStart(2, '0')}`;
                 //console.log(currentDuration);
                 this.progressBarMsg.edit(durationDisplay);
             }
@@ -262,6 +318,20 @@ class GuildData {
         }
         else{
             return false;
+        }
+    }
+
+    togglePlay(){
+        if (this.player.state.status === "paused"){
+            this.player.unpause();
+            return "Resuming...";
+        }
+        else if (this.player.state.status === "playing"){
+            this.player.pause();
+            return "Pausing...";
+        }
+        else{
+            return "Nothing Playing!!!";
         }
     }
 
