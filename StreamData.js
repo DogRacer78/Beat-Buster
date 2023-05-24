@@ -131,11 +131,11 @@ exports.getSearch = async function getSearch(searchTerm){
     return video[0];
 }
 
-exports.createVoiceConnection = function createVoiceConnection(guildID, channelId, client){
+exports.createVoiceConnection = function createVoiceConnection(guildID, channelId, voiceAdapterCreator){
     const voiceConnection = joinVoiceChannel({
         channelId: channelId,
         guildId: guildID,
-        adapterCreator: client.guilds.cache.get(guildID).voiceAdapterCreator
+        adapterCreator: voiceAdapterCreator
     });
 
     // bug in discord.js as of 11/03/23, this fixed from https://github.com/discordjs/discord.js/issues/9185
