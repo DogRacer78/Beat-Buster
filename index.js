@@ -264,10 +264,10 @@ function searchForGuild(guildID, guildDataObjs){
 
 (async () => {
     await setToken({spotify : {
-        client_id : "a16e6d0fdea6485ba5849d461e92d593",
-        client_secret : "63fb814586bc49719c4fe8b5edc3cde2",
-        refresh_token : "AQDuUI5YUJK78WW23tgBPwJVsdAhEnNqT9G5uzGPVFEMcShai-FDhQP_kD43hJr9aL1vlnQBlUlYwarGT-ey9yXIroP6c4dX4Zglgk9pw5IxLoQbpWD2bQYfBvgYNrJEDWQ",
-        market : "GB"
+        client_id : data.spotClientId,
+        client_secret : data.spotClientSecret,
+        refresh_token : data.spotRefreshToken,
+        market : data.spotMarket
     }});
     client.login(data.token);
 })();

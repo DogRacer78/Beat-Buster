@@ -6,3 +6,6 @@ config.json
 
 #logs
 /logs
+
+#Oauth Data
+/OAuthData.json
